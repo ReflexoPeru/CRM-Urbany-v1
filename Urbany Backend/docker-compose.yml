@@ -1,0 +1,85 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: urbany_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME:-urbany_db}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-urbany_pwd}
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: urbany_redis
+
+  backend:
+    build: .
+    container_name: urbany_backend
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG:-True}
+      - DB_NAME=${DB_NAME:-urbany_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-urbany_pwd}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             daphne -b 0.0.0.0 -p 8000 core.asgi:application"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  celery_worker:
+    build: .
+    container_name: urbany_celery_worker
+    command: celery -A core worker -l info
+    volumes:
+      - .:/app
+    environment:
+      - DB_NAME=${DB_NAME:-urbany_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-urbany_pwd}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - db
+      - redis
+      - backend
+
+  celery_beat:
+    build: .
+    container_name: urbany_celery_beat
+    command: celery -A core beat -l info
+    volumes:
+      - .:/app
+    environment:
+      - DB_NAME=${DB_NAME:-urbany_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-urbany_pwd}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - db
+      - redis
+      - backend
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:

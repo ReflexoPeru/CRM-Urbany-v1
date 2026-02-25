@@ -1,0 +1,42 @@
+# Dependencias principales
+Django
+djangorestframework
+psycopg2-binary
+Pillow
+whitenoise
+
+# Autenticación y seguridad
+djangorestframework-simplejwt
+django-cors-headers
+python-decouple
+
+# Comunicación y tareas asíncronas
+celery
+redis
+django-celery-beat
+
+# Integraciones
+requests
+
+# Tiempo real
+channels
+daphne
+channels-redis
+gunicorn
+
+# Documentación API
+drf-spectacular
+drf-yasg
+
+# Desarrollo y pruebas
+pytest
+pytest-django
+coverage
+factory-boy
+
+# Validación de datos
+django-phonenumber-field
+phonenumbers
+
+# Filtros y búsqueda
+django-filter

@@ -1,0 +1,87 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: urbany_db_prod
+    restart: always
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5435:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: urbany_redis_prod
+    restart: always
+
+  backend:
+    build: .
+    container_name: urbany_backend_prod
+    restart: always
+    volumes:
+      - static_volume_prod:/app/staticfiles
+      - media_volume_prod:/app/media
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=False
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py migrate --noinput &&
+             daphne -b 0.0.0.0 -p 8000 core.asgi:application"
+    ports:
+      - "8086:8000"
+    depends_on:
+      - db
+      - redis
+
+  celery_worker:
+    build: .
+    container_name: urbany_celery_worker_prod
+    restart: always
+    command: celery -A core worker -l info
+    environment:
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - db
+      - redis
+      - backend
+
+  celery_beat:
+    build: .
+    container_name: urbany_celery_beat_prod
+    restart: always
+    command: celery -A core beat -l info
+    environment:
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - db
+      - redis
+      - backend
+
+volumes:
+  postgres_data_prod:
+  static_volume_prod:
+  media_volume_prod:
